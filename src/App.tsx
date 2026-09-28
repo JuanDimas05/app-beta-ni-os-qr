@@ -7,23 +7,20 @@ import { CommunityView } from './components/CommunityView';
 import { ArchitectureDocsView } from './components/ArchitectureDocsView';
 import { ChildProfileFormModal } from './components/ChildProfileFormModal';
 import { AuthModal } from './components/AuthModal';
+import { AuthScreen } from './components/AuthScreen';
 import { ChildProfile, ForumPost, ChatMessage, UserAccount } from './types/tea';
 import { INITIAL_CHILDREN, FORUM_CATEGORIES, INITIAL_POSTS, INITIAL_CHAT_MESSAGES } from './data/mockData';
 
 export default function App() {
-  // Current logged in user (parent/tutor)
+  // Current logged in user (parent/tutor) - starts strictly as null (no auto-login)
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
     try {
+      const isSessionActive = localStorage.getItem('conectatea_session_active');
       const saved = localStorage.getItem('conectatea_user');
-      return saved ? JSON.parse(saved) : {
-        id: 'parent_usr_elena',
-        name: 'Elena Ruiz',
-        email: 'elena.ruiz@ejemplo.com',
-        role: 'Mamá de Mateo y Sofi',
-        phone: '+52 55 9182 3456',
-        verifiedEmail: true,
-        createdAt: '2026-03-15T10:00:00Z'
-      };
+      if (isSessionActive === 'true' && saved) {
+        return JSON.parse(saved);
+      }
+      return null;
     } catch {
       return null;
     }
@@ -90,8 +87,10 @@ export default function App() {
     try {
       if (currentUser) {
         localStorage.setItem('conectatea_user', JSON.stringify(currentUser));
+        localStorage.setItem('conectatea_session_active', 'true');
       } else {
         localStorage.removeItem('conectatea_user');
+        localStorage.removeItem('conectatea_session_active');
       }
     } catch (e) {
       console.warn('User storage error:', e);
@@ -242,6 +241,54 @@ export default function App() {
     }, 1500);
   };
 
+  // If user is not logged in, enforce Login / Register screen obligatorily
+  if (!currentUser) {
+    if (currentTab === 'public_scan' && activeChild) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+          <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                  TEA
+                </div>
+                <span className="text-sm font-bold text-slate-900 font-display">
+                  ConectaTEA · Ficha de Auxilio Público
+                </span>
+              </div>
+              <button
+                onClick={() => setCurrentTab('profiles')}
+                className="px-3.5 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-2xs"
+              >
+                Acceso Padres / Registro
+              </button>
+            </div>
+          </header>
+
+          <main className="flex-1 p-2 sm:p-4">
+            <PublicScanView
+              child={activeChild}
+              onBackToApp={() => setCurrentTab('profiles')}
+              currentUser={null}
+            />
+          </main>
+        </div>
+      );
+    }
+
+    return (
+      <AuthScreen
+        onLoginSuccess={(user) => {
+          setCurrentUser(user);
+          setCurrentTab('profiles');
+        }}
+        onOpenPublicScanDemo={() => {
+          setCurrentTab('public_scan');
+        }}
+      />
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
       {/* Top Header */}
@@ -252,7 +299,10 @@ export default function App() {
         toggleEmergencyAlert={() => handleToggleEmergencyAlert()}
         currentUser={currentUser}
         onOpenAuth={() => setIsAuthModalOpen(true)}
-        onLogout={() => setCurrentUser(null)}
+        onLogout={() => {
+          setCurrentUser(null);
+          setCurrentTab('profiles');
+        }}
       />
 
       {/* Main View Area */}

@@ -15,16 +15,18 @@ import {
   Copy,
   Check
 } from 'lucide-react';
-import { ChildProfile } from '../types/tea';
+import { ChildProfile, UserAccount } from '../types/tea';
 
 interface PublicScanViewProps {
   child: ChildProfile;
   onBackToApp?: () => void;
+  currentUser?: UserAccount | null;
 }
 
 export const PublicScanView: React.FC<PublicScanViewProps> = ({
   child,
   onBackToApp,
+  currentUser,
 }) => {
   const [deviceFrameMode, setDeviceFrameMode] = useState<boolean>(false);
   const [geoStatus, setGeoStatus] = useState<string | null>(null);
@@ -358,9 +360,9 @@ export const PublicScanView: React.FC<PublicScanViewProps> = ({
             <button
               type="button"
               onClick={onBackToApp}
-              className="px-3 py-1.5 bg-teal-50 text-teal-800 border border-teal-200 rounded-lg text-xs font-semibold hover:bg-teal-100"
+              className="px-3 py-1.5 bg-teal-50 text-teal-800 border border-teal-200 rounded-lg text-xs font-semibold hover:bg-teal-100 transition-colors"
             >
-              Volver al Panel de Padres
+              {currentUser ? 'Volver al Panel de Padres' : 'Ir a Iniciar Sesión / Registro'}
             </button>
           )}
         </div>
