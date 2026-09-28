@@ -132,8 +132,9 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               onClick={() => setCurrentTab('public_scan')}
               className="hidden sm:inline-flex px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors"
+              title={`Simular escaneo del QR de ${activeChild?.nickname || 'menor'}`}
             >
-              Simular Escaneo
+              Ficha QR ({activeChild?.nickname || 'Menor'})
             </button>
 
             {currentUser ? (

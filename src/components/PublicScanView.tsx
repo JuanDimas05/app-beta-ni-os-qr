@@ -84,6 +84,17 @@ export const PublicScanView: React.FC<PublicScanViewProps> = ({
   // Content render
   const renderPublicContent = () => (
     <div className="max-w-md mx-auto bg-white min-h-screen text-slate-800 shadow-2xl flex flex-col font-sans pb-12">
+      {/* 0. Strict Privacy & Profile Isolation Notice */}
+      <div className="bg-slate-900 text-slate-300 px-4 py-2 text-[11px] flex items-center justify-between border-b border-slate-800">
+        <div className="flex items-center gap-1.5">
+          <ShieldCheck className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+          <span>Ficha de Auxilio Exclusiva: <strong className="text-white">{child.nickname}</strong></span>
+        </div>
+        <span className="text-[10px] text-teal-300 font-mono bg-teal-950 px-2 py-0.5 rounded border border-teal-800/60">
+          ID: {child.qrCodeId}
+        </span>
+      </div>
+
       {/* 1. High Visibility Status Alert Header */}
       {child.isAlertActive ? (
         <div className="bg-rose-600 text-white px-4 py-3.5 flex items-center justify-between shadow-md">
@@ -319,9 +330,13 @@ export const PublicScanView: React.FC<PublicScanViewProps> = ({
         )}
 
         {/* Footer note */}
-        <div className="pt-3 text-center border-t border-slate-100 text-[11px] text-slate-400">
-          Esta ficha de auxilio es generada de forma segura mediante ConectaTEA. 
-          Los datos sensibles son protegidos según normativas de privacidad de menores.
+        <div className="pt-3 text-center border-t border-slate-100 text-[11px] text-slate-400 space-y-1">
+          <div>
+            Esta ficha de auxilio es generada de forma individual y segura mediante ConectaTEA. 
+          </div>
+          <div className="text-[10px] text-slate-500">
+            🔒 Protocolo de Aislamiento: No es posible explorar otros perfiles ni visualizar códigos QR de otros niños desde este escaneo.
+          </div>
         </div>
       </div>
     </div>
@@ -332,13 +347,13 @@ export const PublicScanView: React.FC<PublicScanViewProps> = ({
       {/* Simulation / View Mode Bar */}
       <div className="bg-white p-3 sm:p-4 rounded-xl border border-slate-200 shadow-xs flex flex-wrap items-center justify-between gap-3 text-xs">
         <div className="flex items-center gap-2">
-          <Eye className="w-4 h-4 text-teal-700" />
+          <Eye className="w-4 h-4 text-teal-700 shrink-0" />
           <span className="font-semibold text-slate-800">
-            Simulador de Vista Pública de Escaneo
+            Ficha de Escaneo QR Exclusiva
           </span>
           <span className="text-slate-400">|</span>
           <span className="text-slate-500">
-            Esto es exactamente lo que ve cualquier persona que escanea el código con su cámara
+            Vista individual de auxilio para <strong>{child.nickname}</strong>. Sin acceso a otros menores ni a otros códigos QR.
           </span>
         </div>
 

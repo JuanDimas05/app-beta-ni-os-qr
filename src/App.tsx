@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { AlertCircle } from 'lucide-react';
 import { Header } from './components/Header';
 import { ProfilesView } from './components/ProfilesView';
 import { QRExportView } from './components/QRExportView';
@@ -46,6 +47,8 @@ export default function App() {
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [childToEdit, setChildToEdit] = useState<ChildProfile | null>(null);
 
+  const [qrCodeNotFound, setQrCodeNotFound] = useState(false);
+
   // Forum and chat state
   const [posts, setPosts] = useState<ForumPost[]>(() => {
     try {
@@ -74,10 +77,15 @@ export default function App() {
     if (viewParam === 'public_scan') {
       setCurrentTab('public_scan');
       if (idParam) {
-        const found = childrenList.find(c => c.qrCodeId === idParam);
+        const found = childrenList.find(c => c.qrCodeId === idParam || c.id === idParam);
         if (found) {
           setActiveChildId(found.id);
+          setQrCodeNotFound(false);
+        } else {
+          setQrCodeNotFound(true);
         }
+      } else {
+        setQrCodeNotFound(false);
       }
     }
   }, [childrenList]);
@@ -243,37 +251,82 @@ export default function App() {
 
   // If user is not logged in, enforce Login / Register screen obligatorily
   if (!currentUser) {
-    if (currentTab === 'public_scan' && activeChild) {
-      return (
-        <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
-          <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
-                  TEA
+    if (currentTab === 'public_scan') {
+      if (qrCodeNotFound) {
+        return (
+          <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+            <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                    TEA
+                  </div>
+                  <span className="text-sm font-bold text-slate-900 font-display">
+                    ConectaTEA · Verificación QR
+                  </span>
                 </div>
-                <span className="text-sm font-bold text-slate-900 font-display">
-                  ConectaTEA · Ficha de Auxilio Público
-                </span>
+                <button
+                  onClick={() => setCurrentTab('profiles')}
+                  className="px-3.5 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-2xs"
+                >
+                  Acceso Padres / Registro
+                </button>
               </div>
-              <button
-                onClick={() => setCurrentTab('profiles')}
-                className="px-3.5 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-2xs"
-              >
-                Acceso Padres / Registro
-              </button>
-            </div>
-          </header>
+            </header>
 
-          <main className="flex-1 p-2 sm:p-4">
-            <PublicScanView
-              child={activeChild}
-              onBackToApp={() => setCurrentTab('profiles')}
-              currentUser={null}
-            />
-          </main>
-        </div>
-      );
+            <main className="flex-1 flex items-center justify-center p-4">
+              <div className="max-w-md w-full bg-white rounded-2xl p-6 shadow-xl border border-slate-200 text-center">
+                <div className="w-12 h-12 rounded-full bg-rose-100 text-rose-600 flex items-center justify-center mx-auto mb-4">
+                  <AlertCircle className="w-6 h-6" />
+                </div>
+                <h2 className="text-lg font-bold text-slate-900 mb-2">Código QR No Encontrado</h2>
+                <p className="text-xs text-slate-600 mb-6">
+                  El código escaneado no corresponde a ningún menor activo o el enlace fue desactivado. Por estrictos protocolos de privacidad de menores, no es posible explorar otros perfiles.
+                </p>
+                <button
+                  onClick={() => setCurrentTab('profiles')}
+                  className="w-full py-2.5 px-4 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-semibold transition-colors"
+                >
+                  Ir al Acceso de Padres / Registro
+                </button>
+              </div>
+            </main>
+          </div>
+        );
+      }
+
+      if (activeChild) {
+        return (
+          <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+            <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-teal-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                    TEA
+                  </div>
+                  <span className="text-sm font-bold text-slate-900 font-display">
+                    ConectaTEA · Ficha de Auxilio Público
+                  </span>
+                </div>
+                <button
+                  onClick={() => setCurrentTab('profiles')}
+                  className="px-3.5 py-1.5 bg-teal-700 hover:bg-teal-800 text-white rounded-lg text-xs font-semibold transition-colors shadow-2xs"
+                >
+                  Acceso Padres / Registro
+                </button>
+              </div>
+            </header>
+
+            <main className="flex-1 p-2 sm:p-4">
+              <PublicScanView
+                child={activeChild}
+                onBackToApp={() => setCurrentTab('profiles')}
+                currentUser={null}
+              />
+            </main>
+          </div>
+        );
+      }
     }
 
     return (
@@ -344,6 +397,7 @@ export default function App() {
           <PublicScanView
             child={activeChild}
             onBackToApp={() => setCurrentTab('profiles')}
+            currentUser={currentUser}
           />
         )}
 
