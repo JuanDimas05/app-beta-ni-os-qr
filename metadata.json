@@ -1,0 +1,6 @@
+{
+  "name": "app para los niños - Perfil Seguro QR & Red de Apoyo",
+  "description": "Plataforma integral para familias de personas con TEA: registro de perfiles sensoriales y médicos, códigos QR de emergencia para pulseras y parches, ficha pública de auxilio inmediato y comunidad entre padres.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,31 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+  h1, h2, h3, .font-display {
+    font-family: 'Outfit', 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  #printable-export-area, #printable-export-area * {
+    visibility: visible;
+  }
+  #printable-export-area {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    background: white !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
