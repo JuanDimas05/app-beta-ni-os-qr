@@ -15,7 +15,8 @@ import { UserAccount } from '../types/tea';
 import { 
   registerNewUser, 
   loginWithCredentials, 
-  handleGoogleAuth 
+  handleGoogleAuth,
+  handleGoogleAuthAsync 
 } from '../utils/authStorage';
 
 interface AuthModalProps {
@@ -81,15 +82,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     }, 350);
   };
 
-  const handleGoogleSignIn = () => {
+  const handleGoogleSignIn = async () => {
     setLoading(true);
     setErrorMessage(null);
-    setTimeout(() => {
+    try {
+      const googleUser = await handleGoogleAuthAsync(parentRole, phone);
       setLoading(false);
-      const googleUser = handleGoogleAuth(name, email, parentRole, phone);
       onLoginSuccess(googleUser);
       onClose();
-    }, 400);
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMessage(err?.message || 'Error al conectar con Google.');
+    }
   };
 
   return (

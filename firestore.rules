@@ -1,0 +1,108 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // Validation for User profile
+    function isValidUser(data) {
+      return data.keys().hasAll(['id', 'name', 'email', 'role', 'phone', 'createdAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.name is string && data.name.size() > 0 && data.name.size() <= 100 &&
+        data.email is string && data.email.size() > 0 && data.email.size() <= 150 &&
+        data.role is string && data.role.size() <= 80 &&
+        data.phone is string && data.phone.size() <= 30 &&
+        data.verifiedEmail is bool &&
+        data.createdAt is string && data.createdAt.size() <= 50;
+    }
+
+    // Validation for Child profile
+    function isValidChild(data) {
+      return data.keys().hasAll(['id', 'parentId', 'nickname', 'age', 'qrCodeId', 'privacyMode', 'isAlertActive', 'communicationType', 'createdAt']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.parentId is string && data.parentId.size() <= 128 &&
+        data.nickname is string && data.nickname.size() > 0 && data.nickname.size() <= 80 &&
+        data.age is number && data.age >= 0 && data.age <= 120 &&
+        data.qrCodeId is string && data.qrCodeId.size() <= 128 &&
+        data.privacyMode is string && data.privacyMode.size() <= 50 &&
+        data.isAlertActive is bool &&
+        data.communicationType is string && data.communicationType.size() <= 50 &&
+        data.createdAt is string && data.createdAt.size() <= 50;
+    }
+
+    // Validation for QR Registry public aid sheet
+    function isValidQrRegistry(data) {
+      return data.keys().hasAll(['id', 'qrCodeId', 'childId', 'parentId', 'nickname', 'privacyMode', 'isAlertActive', 'communicationType']) &&
+        data.id is string && data.id.size() <= 128 &&
+        data.qrCodeId is string && data.qrCodeId.size() <= 128 &&
+        data.childId is string && data.childId.size() <= 128 &&
+        data.parentId is string && data.parentId.size() <= 128 &&
+        data.nickname is string && data.nickname.size() > 0 && data.nickname.size() <= 80 &&
+        data.privacyMode is string && data.privacyMode.size() <= 50 &&
+        data.isAlertActive is bool &&
+        data.communicationType is string && data.communicationType.size() <= 50;
+    }
+
+    // User accounts collection
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false; // Disallow querying all users
+      allow create: if isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && incoming().id == userId;
+      allow update: if isOwner(userId) && isValidId(userId) && isValidUser(incoming()) && incoming().id == existing().id;
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      // Subcollection for children belonging to this user
+      match /children/{childId} {
+        allow get, list: if isOwner(userId) && isValidId(userId);
+        allow create: if isOwner(userId) && isValidId(userId) && isValidId(childId) && 
+                         isValidChild(incoming()) && incoming().parentId == userId;
+        allow update: if isOwner(userId) && isValidId(userId) && isValidId(childId) && 
+                         isValidChild(incoming()) && incoming().parentId == existing().parentId;
+        allow delete: if isOwner(userId) && isValidId(userId) && isValidId(childId);
+      }
+    }
+
+    // Emergency QR Registry (allows direct public emergency scan lookup, but only by direct qrCodeId)
+    match /qr_registry/{qrCodeId} {
+      // Emergency responder or good samaritan can read only the single scanned card
+      allow get: if isValidId(qrCodeId);
+      // Deny bulk listing to protect privacy
+      allow list: if false;
+
+      // Only the authenticated parent can create, update, or remove the registry entry
+      allow create: if isSignedIn() && isValidId(qrCodeId) && 
+                       isValidQrRegistry(incoming()) && 
+                       incoming().parentId == request.auth.uid;
+      allow update: if isSignedIn() && isValidId(qrCodeId) && 
+                       isValidQrRegistry(incoming()) && 
+                       existing().parentId == request.auth.uid &&
+                       incoming().parentId == existing().parentId;
+      allow delete: if isSignedIn() && isValidId(qrCodeId) && 
+                       existing().parentId == request.auth.uid;
+    }
+  }
+}

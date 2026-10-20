@@ -16,7 +16,8 @@ import { UserAccount } from '../types/tea';
 import { 
   registerNewUser, 
   loginWithCredentials, 
-  handleGoogleAuth, 
+  handleGoogleAuth,
+  handleGoogleAuthAsync, 
   loginDemoAccount 
 } from '../utils/authStorage';
 
@@ -81,17 +82,20 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     }, 350);
   };
 
-  const handleGoogleSignIn = () => {
+  const handleGoogleSignIn = async () => {
     setLoading(true);
     setErrorMessage(null);
     setInfoMessage(null);
 
-    // Autenticación con Google que genera una cuenta limpia e independiente con 0 perfiles
-    setTimeout(() => {
+    try {
+      // Autenticación con Google vinculada a Firebase Auth y sincronizada con Firestore
+      const googleUser = await handleGoogleAuthAsync(parentRole, phone);
       setLoading(false);
-      const googleUser = handleGoogleAuth(name, email, parentRole, phone);
       onLoginSuccess(googleUser);
-    }, 400);
+    } catch (err: any) {
+      setLoading(false);
+      setErrorMessage(err?.message || 'Error al conectar con Google. Por favor intenta nuevamente.');
+    }
   };
 
   const handleQuickDemoAccess = () => {
@@ -140,6 +144,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   <Check className="w-3.5 h-3.5 text-teal-300" />
                 </div>
                 <span>Perfiles independientes y 100% aislados para cada tutor registrado.</span>
+              </div>
+
+              <div className="flex items-start gap-3 text-xs text-teal-100">
+                <div className="w-5 h-5 rounded-md bg-teal-700/80 flex items-center justify-center shrink-0 mt-0.5">
+                  <Check className="w-3.5 h-3.5 text-teal-300" />
+                </div>
+                <span>Base de datos en la nube (Firestore): tus perfiles sincronizados en cualquier dispositivo.</span>
               </div>
 
               <div className="flex items-start gap-3 text-xs text-teal-100">

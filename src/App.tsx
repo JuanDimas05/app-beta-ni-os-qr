@@ -15,9 +15,13 @@ import {
   getCurrentSession, 
   getChildrenForUser, 
   saveChildrenForUser, 
+  deleteChildFromCloud,
   logoutSession,
-  findChildByQR
+  findChildByQR,
+  findChildByQRAsync,
+  DEMO_USER
 } from './utils/authStorage';
+import { subscribeUserChildren } from './firebase';
 
 export default function App() {
   // Current logged in user (parent/tutor) - begins with current session or null
@@ -66,14 +70,46 @@ export default function App() {
   });
 
   // Whenever currentUser changes (login, register, logout), load only THAT user's children
+  // and attach real-time Firestore listener for multi-device sync
   useEffect(() => {
-    if (currentUser) {
-      const userChildren = getChildrenForUser(currentUser);
-      setChildrenList(userChildren);
-      setActiveChildId(userChildren[0]?.id || '');
-    } else {
+    if (!currentUser) {
       setChildrenList([]);
       setActiveChildId('');
+      return;
+    }
+
+    // 1. Initial fast load from local user cache
+    const userChildren = getChildrenForUser(currentUser);
+    setChildrenList(userChildren);
+    setActiveChildId(userChildren[0]?.id || '');
+
+    // 2. Real-time Firestore sync for multi-device sync (excluding static local demo)
+    if (currentUser.id !== DEMO_USER.id) {
+      const unsubscribe = subscribeUserChildren(
+        currentUser.id,
+        (cloudChildren) => {
+          if (cloudChildren && cloudChildren.length > 0) {
+            setChildrenList(cloudChildren);
+            setActiveChildId((prev) => {
+              if (cloudChildren.some((c) => c.id === prev)) return prev;
+              return cloudChildren[0]?.id || '';
+            });
+            // Update local cache
+            try {
+              localStorage.setItem(`sisu_children_${currentUser.id}`, JSON.stringify(cloudChildren));
+            } catch (e) {
+              console.warn('Cache error:', e);
+            }
+          }
+        },
+        (error) => {
+          console.warn('[Firestore] Realtime subscription notice:', error);
+        }
+      );
+
+      return () => {
+        unsubscribe();
+      };
     }
   }, [currentUser?.id]);
 
@@ -86,14 +122,23 @@ export default function App() {
     if (viewParam === 'public_scan') {
       setCurrentTab('public_scan');
       if (idParam) {
-        const found = childrenList.find(c => c.qrCodeId === idParam || c.id === idParam) || findChildByQR(idParam);
-        if (found) {
-          setPublicScannedChild(found);
-          setActiveChildId(found.id);
+        const localFound = childrenList.find(c => c.qrCodeId === idParam || c.id === idParam) || findChildByQR(idParam);
+        if (localFound) {
+          setPublicScannedChild(localFound);
+          setActiveChildId(localFound.id);
           setQrCodeNotFound(false);
         } else {
-          setPublicScannedChild(null);
-          setQrCodeNotFound(true);
+          // Cloud query in Firestore qr_registry so emergency scans work from ANY device or phone!
+          findChildByQRAsync(idParam).then(remoteFound => {
+            if (remoteFound) {
+              setPublicScannedChild(remoteFound);
+              setActiveChildId(remoteFound.id);
+              setQrCodeNotFound(false);
+            } else {
+              setPublicScannedChild(null);
+              setQrCodeNotFound(true);
+            }
+          });
         }
       } else {
         setPublicScannedChild(null);
@@ -147,6 +192,7 @@ export default function App() {
   };
 
   const handleDeleteChildProfile = (childId: string) => {
+    const childToDelete = childrenList.find(c => c.id === childId);
     const updated = childrenList.filter(c => c.id !== childId);
     setChildrenList(updated);
     if (activeChildId === childId) {
@@ -154,6 +200,7 @@ export default function App() {
     }
     if (currentUser) {
       saveChildrenForUser(currentUser, updated);
+      deleteChildFromCloud(currentUser, childId, childToDelete?.qrCodeId);
     }
   };
 

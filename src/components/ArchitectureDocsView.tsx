@@ -340,6 +340,38 @@ CREATE TABLE forum_comments (
                   Cada vez que se escanea el código QR se genera un registro inmutable con marca de tiempo, cabecera de navegador y, si el usuario acepta, coordenadas geográficas aproximadas para notificar a los tutores y prevenir uso indebido.
                 </p>
               </div>
+
+              {/* Live Cloud Database - Firestore Architecture */}
+              <div className="p-4 bg-teal-50/80 rounded-xl border border-teal-200 md:col-span-2">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-6 h-6 rounded-lg bg-teal-600 text-white flex items-center justify-center font-bold text-xs">
+                    FS
+                  </div>
+                  <span className="text-xs font-bold text-teal-900">
+                    Integración Activa en la Nube: Google Cloud Firestore & Firebase Auth
+                  </span>
+                  <span className="text-[10px] bg-teal-600 text-white px-2 py-0.5 rounded-full font-semibold">
+                    En Producción
+                  </span>
+                </div>
+                <p className="text-xs text-teal-800 leading-relaxed mb-3">
+                  La plataforma cuenta con persistencia multi-dispositivo en tiempo real gobernada por reglas Zero-Trust (<code>firestore.rules</code>) y el modelo intermedio <code>firebase-blueprint.json</code>:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  <div className="bg-white p-3 rounded-lg border border-teal-100">
+                    <span className="font-bold text-slate-800 block text-[11px] mb-0.5 font-mono">/users/{'{userId}'}</span>
+                    <span className="text-slate-600 text-[11px]">Perfil y datos del tutor legal autenticado. Aislado estrictamente por UID.</span>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-teal-100">
+                    <span className="font-bold text-slate-800 block text-[11px] mb-0.5 font-mono">/users/.../children</span>
+                    <span className="text-slate-600 text-[11px]">Subcolección con los perfiles sensoriales y médicos de cada menor. Solo accesible por el padre tutor.</span>
+                  </div>
+                  <div className="bg-white p-3 rounded-lg border border-teal-100">
+                    <span className="font-bold text-slate-800 block text-[11px] mb-0.5 font-mono">/qr_registry/{'{qrCodeId}'}</span>
+                    <span className="text-slate-600 text-[11px]">Ficha pública de emergencia para socorristas (lectura por ID exacto, denegación de listas masivas).</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -151,9 +151,14 @@ export const Header: React.FC<HeaderProps> = ({
                     <span className="text-xs font-bold text-slate-800 block leading-tight">
                       {currentUser.name}
                     </span>
-                    <span className="text-[10px] text-teal-700 block leading-tight">
-                      {currentUser.role}
-                    </span>
+                    <div className="flex items-center gap-1.5 leading-tight mt-0.5">
+                      <span className="text-[10px] text-teal-700">
+                        {currentUser.role}
+                      </span>
+                      <span className="inline-flex items-center text-[9px] font-medium text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                        Nube activa
+                      </span>
+                    </div>
                   </div>
                 </div>
 

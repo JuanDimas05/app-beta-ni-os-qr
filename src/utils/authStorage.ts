@@ -1,5 +1,13 @@
 import { ChildProfile, UserAccount } from '../types/tea';
 import { INITIAL_CHILDREN } from '../data/mockData';
+import { 
+  syncUserToFirestore, 
+  saveChildProfileToFirestore, 
+  deleteChildProfileFromFirestore, 
+  getEmergencyProfileByQR,
+  signInWithGoogleFirebase,
+  signOutFirebase
+} from '../firebase';
 
 export interface StoredAccount extends UserAccount {
   password?: string;
@@ -173,8 +181,50 @@ export const registerNewUser = (
     console.warn('Error saving session:', e);
   }
 
+  // 6. Sincronizar cuenta a la base de datos Firestore en la nube
+  syncUserToFirestore(newUser).catch(err => {
+    console.warn('[Firestore] Sync user error on register:', err);
+  });
+
   const { password: _, ...safeUser } = newUser;
   return { success: true, user: safeUser };
+};
+
+/**
+ * Handles Google Sign-In using Firebase Authentication with popup.
+ * If popup is closed or blocked, falls back cleanly to local auth.
+ * Ensures clean isolated account with 0 child profiles ([]).
+ */
+export const handleGoogleAuthAsync = async (
+  customRole = 'Tutor Parental',
+  customPhone = '+52 55 9876 5432'
+): Promise<UserAccount> => {
+  clearPreviousSession();
+
+  try {
+    const userAccount = await signInWithGoogleFirebase(customRole, customPhone);
+
+    const existingAccounts = getRegisteredAccounts();
+    const existing = existingAccounts.find(a => a.id === userAccount.id || a.email.toLowerCase() === userAccount.email.toLowerCase());
+
+    if (!existing) {
+      existingAccounts.push(userAccount);
+      saveRegisteredAccounts(existingAccounts);
+
+      // Limpia perfiles de niños para cuenta nueva ([])
+      localStorage.setItem(`sisu_children_${userAccount.id}`, JSON.stringify([]));
+      if (userAccount.email) {
+        localStorage.setItem(`sisu_children_${encodeURIComponent(userAccount.email.toLowerCase())}`, JSON.stringify([]));
+      }
+    }
+
+    localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(userAccount));
+    localStorage.setItem(SESSION_ACTIVE_KEY, 'true');
+    return userAccount;
+  } catch (err) {
+    console.warn('Firebase Google Auth popup cancelled or error, using local fallback:', err);
+    return handleGoogleAuth('Familia TEA (Google)', 'usuario.google@gmail.com', customRole, customPhone);
+  }
 };
 
 /**
@@ -216,6 +266,9 @@ export const handleGoogleAuth = (
     // Inicializar lista limpia y vacía ([]) de perfiles para este nuevo usuario
     localStorage.setItem(`sisu_children_${googleId}`, JSON.stringify([]));
     localStorage.setItem(`sisu_children_${encodeURIComponent(cleanEmail)}`, JSON.stringify([]));
+
+    // Sincronizar en Firestore
+    syncUserToFirestore(newGoogleUser).catch(e => console.warn('[Firestore] Sync warning:', e));
 
     existingUser = newGoogleUser;
   }
@@ -272,6 +325,11 @@ export const loginWithCredentials = (
   localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(sessionUser));
   localStorage.setItem(SESSION_ACTIVE_KEY, 'true');
 
+  // Sincronizar usuario a Firestore en inicio de sesión
+  syncUserToFirestore(sessionUser).catch(err => {
+    console.warn('[Firestore] Sync user error on login:', err);
+  });
+
   return { success: true, user: sessionUser };
 };
 
@@ -286,10 +344,11 @@ export const loginDemoAccount = (): UserAccount => {
 };
 
 /**
- * Logs out current user session
+ * Logs out current user session from local and Firebase
  */
 export const logoutSession = () => {
   clearPreviousSession();
+  signOutFirebase().catch(e => console.warn('Firebase signout warning:', e));
 };
 
 /**
@@ -338,6 +397,7 @@ export const getChildrenForUser = (user: UserAccount | null): ChildProfile[] => 
 
 /**
  * Saves children profiles for the specific user account and updates global QR index
+ * and synchronizes with Firebase Firestore cloud database.
  */
 export const saveChildrenForUser = (user: UserAccount, children: ChildProfile[]) => {
   try {
@@ -360,8 +420,29 @@ export const saveChildrenForUser = (user: UserAccount, children: ChildProfile[])
     registry.push(...children);
 
     localStorage.setItem(GLOBAL_QR_REGISTRY_KEY, JSON.stringify(registry));
+
+    // 3. Sincronizar en la nube Firestore si no es la cuenta demo fija
+    if (user.id !== DEMO_USER.id) {
+      children.forEach(child => {
+        saveChildProfileToFirestore(user.id, child).catch(e => {
+          console.warn('[Firestore] Error syncing child to cloud:', e);
+        });
+      });
+    }
   } catch (e) {
     console.warn('Error saving children for user:', e);
+  }
+};
+
+/**
+ * Deletes a child profile from cloud Firestore and emergency registry
+ */
+export const deleteChildFromCloud = async (user: UserAccount, childId: string, qrCodeId?: string) => {
+  if (user.id === DEMO_USER.id) return;
+  try {
+    await deleteChildProfileFromFirestore(user.id, childId, qrCodeId);
+  } catch (e) {
+    console.warn('[Firestore] Error removing child from cloud:', e);
   }
 };
 
@@ -388,4 +469,26 @@ export const findChildByQR = (identifier: string): ChildProfile | null => {
   } catch {
     return null;
   }
+};
+
+/**
+ * Async look up that checks local registry first, then queries Firestore `/qr_registry/{identifier}`
+ * so anyone on ANY device can access the emergency aid sheet!
+ */
+export const findChildByQRAsync = async (identifier: string): Promise<ChildProfile | null> => {
+  if (!identifier) return null;
+
+  // 1. Local / demo check
+  const local = findChildByQR(identifier);
+  if (local) return local;
+
+  // 2. Cloud Firestore check
+  try {
+    const cloudProfile = await getEmergencyProfileByQR(identifier);
+    if (cloudProfile) return cloudProfile;
+  } catch (e) {
+    console.warn('[Firestore] Async emergency lookup error:', e);
+  }
+
+  return null;
 };

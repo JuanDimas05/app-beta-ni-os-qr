@@ -1,0 +1,96 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Profile and account information for a parent or tutor in SISU",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 150 },
+        "role": { "type": "string", "maxLength": 80 },
+        "phone": { "type": "string", "maxLength": 30 },
+        "verifiedEmail": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "name", "email", "role", "phone", "createdAt"]
+    },
+    "Child": {
+      "title": "Child",
+      "description": "Sensory, communication, and medical profile of a child with ASD",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "parentId": { "type": "string", "maxLength": 128 },
+        "nickname": { "type": "string", "maxLength": 80 },
+        "fullName": { "type": "string", "maxLength": 120 },
+        "age": { "type": "number" },
+        "photoUrl": { "type": "string", "maxLength": 1000 },
+        "qrCodeId": { "type": "string", "maxLength": 128 },
+        "privacyMode": { "type": "string", "maxLength": 50 },
+        "isAlertActive": { "type": "boolean" },
+        "communicationType": { "type": "string", "maxLength": 50 },
+        "communicationNotes": { "type": "string", "maxLength": 500 },
+        "sensoryTriggers": { "type": "array" },
+        "customSensoryNotes": { "type": "string", "maxLength": 500 },
+        "calmingTechniques": { "type": "array" },
+        "actionsToAvoid": { "type": "array" },
+        "favoriteComfortItem": { "type": "string", "maxLength": 200 },
+        "emergencyContacts": { "type": "array" },
+        "bloodType": { "type": "string", "maxLength": 10 },
+        "allergies": { "type": "array" },
+        "medications": { "type": "array" },
+        "medicalAlertNotes": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "parentId", "nickname", "age", "qrCodeId", "privacyMode", "isAlertActive", "communicationType", "createdAt"]
+    },
+    "QrRegistryEntry": {
+      "title": "QrRegistryEntry",
+      "description": "Public emergency lookup data accessible when a child's QR tag is scanned",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "qrCodeId": { "type": "string", "maxLength": 128 },
+        "childId": { "type": "string", "maxLength": 128 },
+        "parentId": { "type": "string", "maxLength": 128 },
+        "nickname": { "type": "string", "maxLength": 80 },
+        "fullName": { "type": "string", "maxLength": 120 },
+        "age": { "type": "number" },
+        "photoUrl": { "type": "string", "maxLength": 1000 },
+        "privacyMode": { "type": "string", "maxLength": 50 },
+        "isAlertActive": { "type": "boolean" },
+        "communicationType": { "type": "string", "maxLength": 50 },
+        "communicationNotes": { "type": "string", "maxLength": 500 },
+        "sensoryTriggers": { "type": "array" },
+        "customSensoryNotes": { "type": "string", "maxLength": 500 },
+        "calmingTechniques": { "type": "array" },
+        "actionsToAvoid": { "type": "array" },
+        "favoriteComfortItem": { "type": "string", "maxLength": 200 },
+        "emergencyContacts": { "type": "array" },
+        "bloodType": { "type": "string", "maxLength": 10 },
+        "allergies": { "type": "array" },
+        "medications": { "type": "array" },
+        "medicalAlertNotes": { "type": "string", "maxLength": 500 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "qrCodeId", "childId", "parentId", "nickname", "privacyMode", "isAlertActive", "communicationType"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profile containing parent/tutor account details"
+    },
+    "/users/{userId}/children/{childId}": {
+      "schema": "Child",
+      "description": "Individual child profiles belonging to the parent user"
+    },
+    "/qr_registry/{qrCodeId}": {
+      "schema": "QrRegistryEntry",
+      "description": "Emergency medical and communication aid sheet indexed by QR code"
+    }
+  }
+}
