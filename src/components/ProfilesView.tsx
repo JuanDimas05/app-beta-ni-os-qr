@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { 
   Plus, 
   QrCode, 
@@ -12,7 +12,8 @@ import {
   ShieldAlert,
   Info,
   UserCheck,
-  Lock
+  Lock,
+  Trash2
 } from 'lucide-react';
 import { ChildProfile, UserAccount } from '../types/tea';
 
@@ -21,6 +22,7 @@ interface ProfilesViewProps {
   activeChild: ChildProfile | null;
   setActiveChild: (child: ChildProfile) => void;
   onEditChild: (child: ChildProfile) => void;
+  onDeleteChild?: (childId: string) => void;
   onAddNewChild: () => void;
   onNavigateToQR: (child: ChildProfile) => void;
   onNavigateToScan: (child: ChildProfile) => void;
@@ -34,6 +36,7 @@ export const ProfilesView: React.FC<ProfilesViewProps> = ({
   activeChild,
   setActiveChild,
   onEditChild,
+  onDeleteChild,
   onAddNewChild,
   onNavigateToQR,
   onNavigateToScan,
@@ -41,6 +44,8 @@ export const ProfilesView: React.FC<ProfilesViewProps> = ({
   currentUser,
   onOpenAuth,
 }) => {
+  const [childIdToDelete, setChildIdToDelete] = useState<string | null>(null);
+
   return (
     <div className="space-y-6">
       {/* Top Banner / Welcome with anti-slop clean layout */}
@@ -91,8 +96,28 @@ export const ProfilesView: React.FC<ProfilesViewProps> = ({
         </div>
       </div>
 
-      {/* Children Profiles Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Children Profiles Cards or Clean Empty State */}
+      {childrenList.length === 0 ? (
+        <div className="bg-white rounded-3xl border-2 border-dashed border-teal-200/90 p-8 sm:p-14 text-center shadow-xs">
+          <div className="w-16 h-16 rounded-2xl bg-teal-50 border border-teal-100 text-teal-700 flex items-center justify-center mx-auto mb-4">
+            <Heart className="w-8 h-8 text-teal-600" />
+          </div>
+          <h3 className="text-xl font-bold font-display text-slate-900 mb-2">
+            No tienes perfiles registrados en esta cuenta
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto mb-6 leading-relaxed">
+            Tu cuenta ha iniciado totalmente limpia. Registra a tu primer hijo o menor a cargo con sus desencadenantes sensoriales, formas de comunicarse y contactos de emergencia para generar su pulsera QR de auxilio.
+          </p>
+          <button
+            onClick={onAddNewChild}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs sm:text-sm font-semibold transition-all shadow-sm active:scale-95"
+          >
+            <Plus className="w-4 h-4" />
+            <span>Registrar Primer Menor</span>
+          </button>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {childrenList.map((child) => {
           const isSelected = activeChild?.id === child.id;
 
@@ -119,9 +144,11 @@ export const ProfilesView: React.FC<ProfilesViewProps> = ({
                       <h2 className="text-lg font-bold text-slate-900 font-display">
                         {child.nickname}
                       </h2>
-                      <span className="text-xs text-slate-500">
-                        ({child.age} años)
-                      </span>
+                      {child.age > 0 && (
+                        <span className="text-xs text-slate-500">
+                          ({child.age} años)
+                        </span>
+                      )}
                     </div>
 
                     <div className="text-xs text-slate-500 mt-0.5">
@@ -147,6 +174,43 @@ export const ProfilesView: React.FC<ProfilesViewProps> = ({
                   >
                     <Edit3 className="w-4 h-4" />
                   </button>
+
+                  {onDeleteChild && (
+                    childIdToDelete === child.id ? (
+                      <div 
+                        onClick={(e) => e.stopPropagation()} 
+                        className="flex items-center gap-1 bg-rose-50 border border-rose-200 px-2 py-1 rounded-lg text-xs"
+                      >
+                        <span className="text-[10px] text-rose-700 font-medium">¿Eliminar?</span>
+                        <button
+                          onClick={() => {
+                            onDeleteChild(child.id);
+                            setChildIdToDelete(null);
+                          }}
+                          className="px-1.5 py-0.5 bg-rose-600 hover:bg-rose-700 text-white rounded text-[10px] font-bold"
+                        >
+                          Sí
+                        </button>
+                        <button
+                          onClick={() => setChildIdToDelete(null)}
+                          className="px-1.5 py-0.5 text-slate-500 hover:text-slate-700 text-[10px]"
+                        >
+                          No
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setChildIdToDelete(child.id);
+                        }}
+                        className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                        title="Eliminar perfil"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )
+                  )}
                 </div>
               </div>
 
@@ -282,6 +346,7 @@ export const ProfilesView: React.FC<ProfilesViewProps> = ({
           );
         })}
       </div>
+      )}
 
       {/* Safety & Protocol Guide for Parents */}
       <div className="p-6 bg-slate-100/80 rounded-2xl border border-slate-200/80">

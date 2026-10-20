@@ -35,7 +35,7 @@ export const ChildProfileFormModal: React.FC<ChildProfileFormModalProps> = ({
 }) => {
   const [nickname, setNickname] = useState('');
   const [fullName, setFullName] = useState('');
-  const [age, setAge] = useState<number>(6);
+  const [age, setAge] = useState<string>('');
   const [photoUrl, setPhotoUrl] = useState('/src/assets/images/tea_calm_support_1790581774043.jpg');
   const [communicationType, setCommunicationType] = useState<CommunicationNeed>('no_verbal');
   const [communicationNotes, setCommunicationNotes] = useState('');
@@ -68,7 +68,7 @@ export const ChildProfileFormModal: React.FC<ChildProfileFormModalProps> = ({
     if (initialProfile) {
       setNickname(initialProfile.nickname);
       setFullName(initialProfile.fullName || '');
-      setAge(initialProfile.age);
+      setAge(initialProfile.age ? String(initialProfile.age) : '');
       setPhotoUrl(initialProfile.photoUrl);
       setCommunicationType(initialProfile.communicationType);
       setCommunicationNotes(initialProfile.communicationNotes);
@@ -97,7 +97,7 @@ export const ChildProfileFormModal: React.FC<ChildProfileFormModalProps> = ({
       // Default clean values
       setNickname('');
       setFullName('');
-      setAge(6);
+      setAge('');
       setPhotoUrl('/src/assets/images/tea_calm_support_1790581774043.jpg');
       setCommunicationType('no_verbal');
       setCommunicationNotes('Comprende lenguaje sencillo. Si entra en crisis se desorienta y no contesta.');
@@ -197,12 +197,14 @@ export const ChildProfileFormModal: React.FC<ChildProfileFormModalProps> = ({
       .map(s => s.trim())
       .filter(Boolean);
 
+    const parsedAge = age.trim() === '' ? 0 : (parseInt(age, 10) || 0);
+
     const profileData: ChildProfile = {
       id: initialProfile?.id || 'child_' + Date.now(),
       parentId: initialProfile?.parentId || currentParent?.id || 'parent_usr_current',
       nickname: nickname.trim(),
       fullName: fullName.trim() || undefined,
-      age: Number(age) || 6,
+      age: parsedAge,
       photoUrl,
       qrCodeId: initialProfile?.qrCodeId || `TEA-QR-${nickname.toUpperCase().slice(0, 4)}-${Math.floor(1000 + Math.random() * 9000)}`,
       privacyMode,
@@ -292,13 +294,20 @@ export const ChildProfileFormModal: React.FC<ChildProfileFormModalProps> = ({
                   Edad
                 </label>
                 <input
-                  type="number"
-                  min={1}
-                  max={25}
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="Ej: 6"
                   value={age}
-                  onChange={(e) => setAge(parseInt(e.target.value) || 1)}
+                  onChange={(e) => {
+                    const cleanValue = e.target.value.replace(/[^0-9]/g, '');
+                    setAge(cleanValue);
+                  }}
                   className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
                 />
+                <span className="text-[11px] text-slate-400 mt-0.5 block">
+                  Campo libre: puedes borrar y escribir cualquier edad.
+                </span>
               </div>
             </div>
 

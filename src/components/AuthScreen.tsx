@@ -5,26 +5,27 @@ import {
   Lock, 
   User, 
   Phone, 
-  Heart, 
   ArrowRight, 
-  Sparkles, 
   Check, 
   AlertCircle,
   Eye,
   EyeOff,
-  QrCode,
-  Users
+  Sparkles
 } from 'lucide-react';
 import { UserAccount } from '../types/tea';
+import { 
+  registerNewUser, 
+  loginWithCredentials, 
+  handleGoogleAuth, 
+  loginDemoAccount 
+} from '../utils/authStorage';
 
 interface AuthScreenProps {
   onLoginSuccess: (user: UserAccount) => void;
-  onOpenPublicScanDemo: () => void;
 }
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({
   onLoginSuccess,
-  onOpenPublicScanDemo,
 }) => {
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [name, setName] = useState('');
@@ -35,68 +36,72 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [acceptedTerms, setAcceptedTerms] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-
-    if (!email.trim() || !password.trim()) {
-      setErrorMessage('Por favor ingresa tu correo electrónico y contraseña.');
-      return;
-    }
-
-    if (isRegisterMode) {
-      if (!name.trim()) {
-        setErrorMessage('Por favor ingresa tu nombre completo.');
-        return;
-      }
-      if (password.length < 6) {
-        setErrorMessage('La contraseña debe tener al menos 6 caracteres.');
-        return;
-      }
-      if (!acceptedTerms) {
-        setErrorMessage('Debes aceptar los términos de protección y consentimiento parental.');
-        return;
-      }
-    }
-
+    setInfoMessage(null);
     setLoading(true);
 
     setTimeout(() => {
-      setLoading(false);
-      const user: UserAccount = {
-        id: isRegisterMode ? 'usr_' + Date.now() : 'usr_' + btoa(email).slice(0, 10),
-        name: isRegisterMode ? name.trim() : (name.trim() || email.split('@')[0]),
-        email: email.trim(),
-        role: isRegisterMode ? parentRole : 'Tutor / Familiar',
-        phone: phone.trim() || '+52 55 1234 5678',
-        verifiedEmail: true,
-        createdAt: new Date().toISOString()
-      };
+      if (isRegisterMode) {
+        // Registro de usuario nuevo con validación real y aislamiento de almacenamiento
+        const result = registerNewUser(
+          name,
+          email,
+          password,
+          parentRole,
+          phone,
+          acceptedTerms
+        );
 
-      onLoginSuccess(user);
-    }, 400);
+        setLoading(false);
+
+        if (!result.success) {
+          setErrorMessage(result.error);
+          return;
+        }
+
+        // Cuenta creada limpia con 0 perfiles de niños
+        onLoginSuccess(result.user);
+      } else {
+        // Inicio de sesión con credenciales
+        const result = loginWithCredentials(email, password);
+        setLoading(false);
+
+        if (!result.success) {
+          setErrorMessage(result.error);
+          return;
+        }
+
+        onLoginSuccess(result.user);
+      }
+    }, 350);
   };
 
   const handleGoogleSignIn = () => {
     setLoading(true);
     setErrorMessage(null);
-    // Simular autenticación OAuth de Google rápida y limpia
+    setInfoMessage(null);
+
+    // Autenticación con Google que genera una cuenta limpia e independiente con 0 perfiles
     setTimeout(() => {
       setLoading(false);
-      const googleUser: UserAccount = {
-        id: 'usr_google_' + Date.now(),
-        name: name.trim() || 'Familia TEA (Google)',
-        email: email.trim() || 'usuario.google@gmail.com',
-        role: parentRole || 'Tutor Parental',
-        phone: phone.trim() || '+52 55 9876 5432',
-        avatarUrl: '',
-        verifiedEmail: true,
-        createdAt: new Date().toISOString()
-      };
+      const googleUser = handleGoogleAuth(name, email, parentRole, phone);
       onLoginSuccess(googleUser);
-    }, 500);
+    }, 400);
+  };
+
+  const handleQuickDemoAccess = () => {
+    setLoading(true);
+    setErrorMessage(null);
+    setTimeout(() => {
+      setLoading(false);
+      const demoUser = loginDemoAccount();
+      onLoginSuccess(demoUser);
+    }, 300);
   };
 
   return (
@@ -113,7 +118,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 <ShieldCheck className="w-6 h-6" />
               </div>
               <span className="text-xl font-bold font-display tracking-tight text-white">
-                ConectaTEA
+                SISU
               </span>
             </div>
 
@@ -126,10 +131,17 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             </h1>
 
             <p className="text-xs text-teal-100/90 leading-relaxed mb-6">
-              Inicia sesión o crea tu cuenta de tutor legal para gestionar los perfiles sensoriales de tus hijos, imprimir pulseras de auxilio y conectar con la comunidad.
+              Plataforma SISU: Inicia sesión o crea tu cuenta de tutor legal para gestionar los perfiles sensoriales de tus hijos, imprimir pulseras de auxilio y conectar con la comunidad.
             </p>
 
             <div className="space-y-3 pt-2">
+              <div className="flex items-start gap-3 text-xs text-teal-100">
+                <div className="w-5 h-5 rounded-md bg-teal-700/80 flex items-center justify-center shrink-0 mt-0.5">
+                  <Check className="w-3.5 h-3.5 text-teal-300" />
+                </div>
+                <span>Perfiles independientes y 100% aislados para cada tutor registrado.</span>
+              </div>
+
               <div className="flex items-start gap-3 text-xs text-teal-100">
                 <div className="w-5 h-5 rounded-md bg-teal-700/80 flex items-center justify-center shrink-0 mt-0.5">
                   <Check className="w-3.5 h-3.5 text-teal-300" />
@@ -143,25 +155,18 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 </div>
                 <span>Generación de códigos QR para pulseras, tarjetas y parches de ropa.</span>
               </div>
-
-              <div className="flex items-start gap-3 text-xs text-teal-100">
-                <div className="w-5 h-5 rounded-md bg-teal-700/80 flex items-center justify-center shrink-0 mt-0.5">
-                  <Check className="w-3.5 h-3.5 text-teal-300" />
-                </div>
-                <span>Foros y salas de conversación privadas entre familias de niños TEA.</span>
-              </div>
             </div>
           </div>
 
-          {/* Direct link to public emergency preview */}
-          <div className="mt-8 pt-6 border-t border-teal-700/40">
+          {/* Quick Demo Access for Testing */}
+          <div className="mt-8 pt-5 border-t border-teal-700/50">
             <button
               type="button"
-              onClick={onOpenPublicScanDemo}
-              className="w-full py-2.5 px-3 bg-teal-900/60 hover:bg-teal-900 border border-teal-600/40 rounded-xl text-xs text-teal-200 hover:text-white transition-colors flex items-center justify-center gap-2"
+              onClick={handleQuickDemoAccess}
+              className="w-full py-2 px-3 bg-teal-900/60 hover:bg-teal-900/90 border border-teal-600/40 rounded-xl text-xs text-teal-200 hover:text-white transition-colors flex items-center justify-center gap-2"
             >
-              <QrCode className="w-4 h-4 text-teal-400" />
-              <span>Ver Ficha Pública de Emergencia (Sin Cuenta)</span>
+              <Sparkles className="w-3.5 h-3.5 text-teal-300" />
+              <span>Probar con cuenta Demo (Elena - Perfiles de ejemplo)</span>
             </button>
           </div>
         </div>
@@ -180,6 +185,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   onClick={() => {
                     setIsRegisterMode(false);
                     setErrorMessage(null);
+                    setInfoMessage(null);
                   }}
                   className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
                     !isRegisterMode ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
@@ -192,6 +198,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   onClick={() => {
                     setIsRegisterMode(true);
                     setErrorMessage(null);
+                    setInfoMessage(null);
                   }}
                   className={`px-3 py-1.5 rounded-lg font-medium transition-all ${
                     isRegisterMode ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-500 hover:text-slate-900'
@@ -204,8 +211,8 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
             <p className="text-xs text-slate-500 mt-1">
               {isRegisterMode
-                ? 'Ingresa tus datos para resguardar legalmente el perfil de tu hijo.'
-                : 'Identifícate con tus credenciales parentales para acceder al panel.'}
+                ? 'Crea tu cuenta de tutor legal. Iniciará limpia con 0 perfiles para que registres los tuyos.'
+                : 'Identifícate con tus credenciales parentales para acceder a tus perfiles.'}
             </p>
           </div>
 
@@ -255,6 +262,13 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
             </div>
           )}
 
+          {infoMessage && (
+            <div className="mb-4 p-3 bg-teal-50 border border-teal-200 rounded-xl text-xs text-teal-800 flex items-center gap-2">
+              <Check className="w-4 h-4 text-teal-600 shrink-0" />
+              <span>{infoMessage}</span>
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-3.5">
             {isRegisterMode && (
               <>
@@ -267,7 +281,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                     <input
                       type="text"
                       required
-                      placeholder="Ej. Elena Ruiz Gómez"
+                      placeholder="Ej. Carmen Ortiz Morales"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
                       className="w-full pl-9 pr-3 py-2 text-xs border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600"
@@ -338,7 +352,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                 {!isRegisterMode && (
                   <button
                     type="button"
-                    onClick={() => alert('Se enviaría un enlace de restablecimiento seguro a tu correo electrónico verificado.')}
+                    onClick={() => setInfoMessage('Se ha enviado una notificación de restablecimiento a tu correo registrado.')}
                     className="text-[11px] text-teal-700 hover:underline"
                   >
                     ¿Olvidaste tu contraseña?
@@ -384,7 +398,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
               disabled={loading}
               className="w-full py-3 px-4 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center gap-2 mt-2 active:scale-[0.99]"
             >
-              <span>{loading ? 'Verificando...' : isRegisterMode ? 'Crear Cuenta y Entrar' : 'Iniciar Sesión'}</span>
+              <span>{loading ? 'Verificando y Creando...' : isRegisterMode ? 'Crear Cuenta y Entrar' : 'Iniciar Sesión'}</span>
               <ArrowRight className="w-4 h-4" />
             </button>
           </form>
@@ -399,6 +413,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   onClick={() => {
                     setIsRegisterMode(false);
                     setErrorMessage(null);
+                    setInfoMessage(null);
                   }}
                   className="text-teal-700 font-bold hover:underline"
                 >
@@ -413,6 +428,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
                   onClick={() => {
                     setIsRegisterMode(true);
                     setErrorMessage(null);
+                    setInfoMessage(null);
                   }}
                   className="text-teal-700 font-bold hover:underline"
                 >

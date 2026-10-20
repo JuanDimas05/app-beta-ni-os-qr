@@ -36,7 +36,7 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
               <div>
                 <span className="text-xl font-bold tracking-tight text-slate-900 font-display">
-                  ConectaTEA
+                  SISU
                 </span>
                 <span className="hidden sm:inline-block text-xs text-slate-500 ml-2">
                   Seguridad & Red de Familias

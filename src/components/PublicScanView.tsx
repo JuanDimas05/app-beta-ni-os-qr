@@ -332,7 +332,7 @@ export const PublicScanView: React.FC<PublicScanViewProps> = ({
         {/* Footer note */}
         <div className="pt-3 text-center border-t border-slate-100 text-[11px] text-slate-400 space-y-1">
           <div>
-            Esta ficha de auxilio es generada de forma individual y segura mediante ConectaTEA. 
+            Esta ficha de auxilio es generada de forma individual y segura mediante SISU. 
           </div>
           <div className="text-[10px] text-slate-500">
             🔒 Protocolo de Aislamiento: No es posible explorar otros perfiles ni visualizar códigos QR de otros niños desde este escaneo.

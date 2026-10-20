@@ -115,7 +115,7 @@ CREATE TABLE forum_comments (
           <span>Especificación Técnica & Arquitectura de Producto</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold mt-1 mb-2 font-display text-white">
-          Documento de Ingeniería y Diseño: ConectaTEA
+          Documento de Ingeniería y Diseño: SISU
         </h1>
         <p className="text-slate-300 text-sm max-w-3xl leading-relaxed">
           Diseño holístico de la solución: mapa de pantallas móviles, modelos de bases de datos relacionales y NoSQL,

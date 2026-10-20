@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, QrCode, Plus, Eye } from 'lucide-react';
 import { Header } from './components/Header';
 import { ProfilesView } from './components/ProfilesView';
 import { QRExportView } from './components/QRExportView';
@@ -10,38 +10,35 @@ import { ChildProfileFormModal } from './components/ChildProfileFormModal';
 import { AuthModal } from './components/AuthModal';
 import { AuthScreen } from './components/AuthScreen';
 import { ChildProfile, ForumPost, ChatMessage, UserAccount } from './types/tea';
-import { INITIAL_CHILDREN, FORUM_CATEGORIES, INITIAL_POSTS, INITIAL_CHAT_MESSAGES } from './data/mockData';
+import { FORUM_CATEGORIES, INITIAL_POSTS, INITIAL_CHAT_MESSAGES } from './data/mockData';
+import { 
+  getCurrentSession, 
+  getChildrenForUser, 
+  saveChildrenForUser, 
+  logoutSession,
+  findChildByQR
+} from './utils/authStorage';
 
 export default function App() {
-  // Current logged in user (parent/tutor) - starts strictly as null (no auto-login)
+  // Current logged in user (parent/tutor) - begins with current session or null
   const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
-    try {
-      const isSessionActive = localStorage.getItem('conectatea_session_active');
-      const saved = localStorage.getItem('conectatea_user');
-      if (isSessionActive === 'true' && saved) {
-        return JSON.parse(saved);
-      }
-      return null;
-    } catch {
-      return null;
-    }
+    return getCurrentSession();
   });
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
 
-  // Load persistent children or defaults
+  // Load children profiles strictly belonging to current user (clean [] for any new account)
   const [childrenList, setChildrenList] = useState<ChildProfile[]>(() => {
-    try {
-      const saved = localStorage.getItem('conectatea_children');
-      return saved ? JSON.parse(saved) : INITIAL_CHILDREN;
-    } catch {
-      return INITIAL_CHILDREN;
-    }
+    const session = getCurrentSession();
+    return getChildrenForUser(session);
   });
 
   const [activeChildId, setActiveChildId] = useState<string>(() => {
-    return childrenList[0]?.id || '';
+    const list = getChildrenForUser(getCurrentSession());
+    return list[0]?.id || '';
   });
+
+  const [publicScannedChild, setPublicScannedChild] = useState<ChildProfile | null>(null);
 
   const [currentTab, setCurrentTab] = useState<'profiles' | 'qr_export' | 'community' | 'public_scan' | 'architecture'>('profiles');
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
@@ -52,7 +49,7 @@ export default function App() {
   // Forum and chat state
   const [posts, setPosts] = useState<ForumPost[]>(() => {
     try {
-      const saved = localStorage.getItem('conectatea_posts');
+      const saved = localStorage.getItem('sisu_posts') || localStorage.getItem('conectatea_posts');
       return saved ? JSON.parse(saved) : INITIAL_POSTS;
     } catch {
       return INITIAL_POSTS;
@@ -61,12 +58,24 @@ export default function App() {
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
     try {
-      const saved = localStorage.getItem('conectatea_chat');
+      const saved = localStorage.getItem('sisu_chat') || localStorage.getItem('conectatea_chat');
       return saved ? JSON.parse(saved) : INITIAL_CHAT_MESSAGES;
     } catch {
       return INITIAL_CHAT_MESSAGES;
     }
   });
+
+  // Whenever currentUser changes (login, register, logout), load only THAT user's children
+  useEffect(() => {
+    if (currentUser) {
+      const userChildren = getChildrenForUser(currentUser);
+      setChildrenList(userChildren);
+      setActiveChildId(userChildren[0]?.id || '');
+    } else {
+      setChildrenList([]);
+      setActiveChildId('');
+    }
+  }, [currentUser?.id]);
 
   // Check URL parameters for direct public scan link
   useEffect(() => {
@@ -77,47 +86,26 @@ export default function App() {
     if (viewParam === 'public_scan') {
       setCurrentTab('public_scan');
       if (idParam) {
-        const found = childrenList.find(c => c.qrCodeId === idParam || c.id === idParam);
+        const found = childrenList.find(c => c.qrCodeId === idParam || c.id === idParam) || findChildByQR(idParam);
         if (found) {
+          setPublicScannedChild(found);
           setActiveChildId(found.id);
           setQrCodeNotFound(false);
         } else {
+          setPublicScannedChild(null);
           setQrCodeNotFound(true);
         }
       } else {
-        setQrCodeNotFound(false);
+        setPublicScannedChild(null);
+        setQrCodeNotFound(true);
       }
-    }
-  }, [childrenList]);
-
-  // Persist user to localStorage
-  useEffect(() => {
-    try {
-      if (currentUser) {
-        localStorage.setItem('conectatea_user', JSON.stringify(currentUser));
-        localStorage.setItem('conectatea_session_active', 'true');
-      } else {
-        localStorage.removeItem('conectatea_user');
-        localStorage.removeItem('conectatea_session_active');
-      }
-    } catch (e) {
-      console.warn('User storage error:', e);
-    }
-  }, [currentUser]);
-
-  // Persist children to localStorage
-  useEffect(() => {
-    try {
-      localStorage.setItem('conectatea_children', JSON.stringify(childrenList));
-    } catch (e) {
-      console.warn('Storage error:', e);
     }
   }, [childrenList]);
 
   // Persist posts
   useEffect(() => {
     try {
-      localStorage.setItem('conectatea_posts', JSON.stringify(posts));
+      localStorage.setItem('sisu_posts', JSON.stringify(posts));
     } catch (e) {
       console.warn('Storage error:', e);
     }
@@ -126,7 +114,7 @@ export default function App() {
   // Persist chat
   useEffect(() => {
     try {
-      localStorage.setItem('conectatea_chat', JSON.stringify(chatMessages));
+      localStorage.setItem('sisu_chat', JSON.stringify(chatMessages));
     } catch (e) {
       console.warn('Storage error:', e);
     }
@@ -136,14 +124,36 @@ export default function App() {
 
   // Handlers for profile
   const handleSaveChildProfile = (profile: ChildProfile) => {
+    const profileWithParent: ChildProfile = {
+      ...profile,
+      parentId: currentUser?.id || profile.parentId || 'parent_custom'
+    };
+
     const existingIndex = childrenList.findIndex(c => c.id === profile.id);
+    let updated: ChildProfile[];
     if (existingIndex >= 0) {
-      const updated = [...childrenList];
-      updated[existingIndex] = profile;
-      setChildrenList(updated);
+      updated = [...childrenList];
+      updated[existingIndex] = profileWithParent;
     } else {
-      setChildrenList([...childrenList, profile]);
-      setActiveChildId(profile.id);
+      updated = [...childrenList, profileWithParent];
+    }
+
+    setChildrenList(updated);
+    setActiveChildId(profileWithParent.id);
+
+    if (currentUser) {
+      saveChildrenForUser(currentUser, updated);
+    }
+  };
+
+  const handleDeleteChildProfile = (childId: string) => {
+    const updated = childrenList.filter(c => c.id !== childId);
+    setChildrenList(updated);
+    if (activeChildId === childId) {
+      setActiveChildId(updated[0]?.id || '');
+    }
+    if (currentUser) {
+      saveChildrenForUser(currentUser, updated);
     }
   };
 
@@ -161,7 +171,7 @@ export default function App() {
     const targetId = childIdToToggle || activeChild?.id;
     if (!targetId) return;
 
-    setChildrenList(prev => prev.map(child => {
+    const updated = childrenList.map(child => {
       if (child.id === targetId) {
         return {
           ...child,
@@ -169,7 +179,12 @@ export default function App() {
         };
       }
       return child;
-    }));
+    });
+
+    setChildrenList(updated);
+    if (currentUser) {
+      saveChildrenForUser(currentUser, updated);
+    }
   };
 
   // Handlers for Forum & Chat
@@ -205,9 +220,9 @@ export default function App() {
             {
               id: 'c_' + Date.now(),
               postId,
-              authorId: 'usr_me',
-              authorName: 'Elena Ruiz (Tú)',
-              authorRole: 'Mamá de Mateo (7 años)',
+              authorId: currentUser?.id || 'usr_me',
+              authorName: currentUser ? `${currentUser.name} (Tú)` : 'Tutor (Tú)',
+              authorRole: currentUser?.role || 'Familiar / Tutor',
               content: commentText,
               createdAt: 'Justo ahora',
               likesCount: 0
@@ -222,8 +237,8 @@ export default function App() {
   const handleSendChatMessage = (text: string) => {
     const newMsg: ChatMessage = {
       id: 'msg_' + Date.now(),
-      senderId: 'usr_me',
-      senderName: 'Elena Ruiz (Tú)',
+      senderId: currentUser?.id || 'usr_me',
+      senderName: currentUser ? `${currentUser.name} (Tú)` : 'Tutor (Tú)',
       text,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     };
@@ -262,7 +277,7 @@ export default function App() {
                     TEA
                   </div>
                   <span className="text-sm font-bold text-slate-900 font-display">
-                    ConectaTEA · Verificación QR
+                    SISU · Verificación QR
                   </span>
                 </div>
                 <button
@@ -295,7 +310,8 @@ export default function App() {
         );
       }
 
-      if (activeChild) {
+      const displayChild = publicScannedChild || activeChild;
+      if (displayChild) {
         return (
           <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
             <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
@@ -305,7 +321,7 @@ export default function App() {
                     TEA
                   </div>
                   <span className="text-sm font-bold text-slate-900 font-display">
-                    ConectaTEA · Ficha de Auxilio Público
+                    SISU · Ficha de Auxilio Público
                   </span>
                 </div>
                 <button
@@ -319,7 +335,7 @@ export default function App() {
 
             <main className="flex-1 p-2 sm:p-4">
               <PublicScanView
-                child={activeChild}
+                child={displayChild}
                 onBackToApp={() => setCurrentTab('profiles')}
                 currentUser={null}
               />
@@ -335,12 +351,11 @@ export default function App() {
           setCurrentUser(user);
           setCurrentTab('profiles');
         }}
-        onOpenPublicScanDemo={() => {
-          setCurrentTab('public_scan');
-        }}
       />
     );
   }
+
+  const childForPublicScan = publicScannedChild || activeChild;
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
@@ -353,7 +368,10 @@ export default function App() {
         currentUser={currentUser}
         onOpenAuth={() => setIsAuthModalOpen(true)}
         onLogout={() => {
+          logoutSession();
           setCurrentUser(null);
+          setChildrenList([]);
+          setActiveChildId('');
           setCurrentTab('profiles');
         }}
       />
@@ -366,6 +384,7 @@ export default function App() {
             activeChild={activeChild}
             setActiveChild={(child) => setActiveChildId(child.id)}
             onEditChild={handleEditChild}
+            onDeleteChild={handleDeleteChildProfile}
             onAddNewChild={handleAddNewChild}
             onNavigateToQR={(child) => {
               setActiveChildId(child.id);
@@ -381,24 +400,66 @@ export default function App() {
           />
         )}
 
-        {currentTab === 'qr_export' && activeChild && (
-          <QRExportView
-            child={activeChild}
-            childrenList={childrenList}
-            onSelectChild={(c) => setActiveChildId(c.id)}
-            onOpenPublicScan={(c) => {
-              setActiveChildId(c.id);
-              setCurrentTab('public_scan');
-            }}
-          />
+        {currentTab === 'qr_export' && (
+          activeChild ? (
+            <QRExportView
+              child={activeChild}
+              childrenList={childrenList}
+              onSelectChild={(c) => setActiveChildId(c.id)}
+              onOpenPublicScan={(c) => {
+                setActiveChildId(c.id);
+                setCurrentTab('public_scan');
+              }}
+            />
+          ) : (
+            <div className="bg-white rounded-3xl border border-slate-200 p-8 sm:p-12 text-center max-w-xl mx-auto shadow-xs">
+              <div className="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-100 text-teal-700 flex items-center justify-center mx-auto mb-4">
+                <QrCode className="w-7 h-7" />
+              </div>
+              <h3 className="text-lg font-bold font-display text-slate-900 mb-2">
+                No tienes perfiles para generar código QR
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 mb-6 leading-relaxed">
+                Para imprimir pulseras de silicona o parches termoadhesivos de auxilio, primero registra el perfil de un menor en tu cuenta.
+              </p>
+              <button
+                onClick={handleAddNewChild}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-semibold shadow-xs"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Registrar Primer Menor</span>
+              </button>
+            </div>
+          )
         )}
 
-        {currentTab === 'public_scan' && activeChild && (
-          <PublicScanView
-            child={activeChild}
-            onBackToApp={() => setCurrentTab('profiles')}
-            currentUser={currentUser}
-          />
+        {currentTab === 'public_scan' && (
+          childForPublicScan ? (
+            <PublicScanView
+              child={childForPublicScan}
+              onBackToApp={() => setCurrentTab('profiles')}
+              currentUser={currentUser}
+            />
+          ) : (
+            <div className="bg-white rounded-3xl border border-slate-200 p-8 sm:p-12 text-center max-w-xl mx-auto shadow-xs">
+              <div className="w-14 h-14 rounded-2xl bg-slate-50 border border-slate-200 text-slate-600 flex items-center justify-center mx-auto mb-4">
+                <Eye className="w-7 h-7 text-slate-400" />
+              </div>
+              <h3 className="text-lg font-bold font-display text-slate-900 mb-2">
+                Sin Ficha Pública Activa
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 mb-6 leading-relaxed">
+                Aún no tienes menores registrados para simular la vista pública de emergencia que verían quienes escaneen el QR.
+              </p>
+              <button
+                onClick={handleAddNewChild}
+                className="inline-flex items-center gap-2 px-5 py-2.5 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-semibold shadow-xs"
+              >
+                <Plus className="w-4 h-4" />
+                <span>Registrar Primer Menor</span>
+              </button>
+            </div>
+          )
         )}
 
         {currentTab === 'community' && (
@@ -441,11 +502,11 @@ export default function App() {
         }}
       />
 
-      {/* Subtle Footer conforming to Anti-Slop Discipline */}
+      {/* Subtle Footer */}
       <footer className="no-print mt-auto border-t border-slate-200 bg-white py-6 text-xs text-slate-500">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-slate-900 font-display">ConectaTEA</span>
+            <span className="font-bold text-slate-900 font-display">SISU</span>
             <span aria-hidden="true">·</span>
             <span>Seguridad y Red de Crianza para Familias con TEA</span>
           </div>
